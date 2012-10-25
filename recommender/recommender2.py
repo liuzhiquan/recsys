@@ -18,8 +18,8 @@ class Recommender:
         self.userid2name = {}
         self.productid2name = {}
 
-        # average rating for each user
-        self.avgRatings = {}
+        # average rating
+        self.avg_rating = 0.0
 
         # for some reason I want to save the name of the metric
         self.metric = metric
@@ -78,6 +78,9 @@ class Recommender:
         for user, ratings in self.userdata.iteritems():
             total_rating += sum(ratings.values())
         self.avg_rating = total_rating / self.num_ratings
+        
+        #
+        
         
         # substract average rating
         # It turns out to give worse results.

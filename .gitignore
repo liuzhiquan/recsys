@@ -3,3 +3,4 @@ ptdata
 movielens
 
 *.tmp
+*.tar

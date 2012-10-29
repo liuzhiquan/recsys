@@ -12,6 +12,7 @@ class Recommender():
         self.ratings = {}
         self.get_sim = self.cosine_sim
         self.sims = {}
+        self.sim_tmpfile = 'sims-%s.tmp' % self.category
     
         self.conn = MySQLdb.connect(user='root', passwd='', db='putao')
         self.cursor = self.conn.cursor()
@@ -40,8 +41,8 @@ class Recommender():
         if ratings is None: ratings = self.ratings
         
         sims = {}
-        if os.path.exists('sims'):
-            for line in open('sims').readlines():
+        if os.path.exists(self.sim_tmpfile):
+            for line in open(self.sim_tmpfile).readlines():
                 fields = line.strip().split('\t')
                 item = int(fields[0])
                 sim_list = []
@@ -64,7 +65,7 @@ class Recommender():
             sims[item1] = sim_list[:N]
         self.sims = sims
 
-        f = open('sims', 'w')
+        f = open(self.sim_tmpfile, 'w')
         for key in sorted(sims.keys()):
             f.write('%i\t' % key)
             sim_list = sorted(sims[key], reverse=True)[:N]
@@ -75,16 +76,16 @@ class Recommender():
     def recommend(self, items, sims):
         cursor = self.cursor
         for item in items:
-            #cursor.execute('select name from torrents where id=%i' % item)
-            #print cursor.fetchone()[0]
+            cursor.execute('select name from torrents where id=%i' % item)
+            print cursor.fetchone()[0]
             print item
             print
             sim_list = sims.get(item, [])
             for sim, recommended_item in sim_list[:20]:
-                #cursor.execute('select name from torrents where id=%i' % recommended_item)
-                #name = cursor.fetchone()[0]
-                #print name, sim
-                print sim, recommended_item
+                cursor.execute('select name from torrents where id=%i' % recommended_item)
+                name = cursor.fetchone()[0]
+                print name, recommended_item, sim
+                #print sim, recommended_item
             print
             print
 
@@ -97,10 +98,18 @@ class Recommender():
         else:
             return numerator / denominator
 
+    def get_categories(self):
+        cursor = self.cursor
+        cursor.execute('select distinct category from torrents')
+        categories = [row[0] for row in cursor.fetchall()]
+        return categories
+
 
 if __name__ == '__main__':
     r = Recommender(402)
-    r.load_data_from_db()
-    r.cal_sim(r.items, r.ratings, N=20)
-    r.recommend(r.items, r.sims)
-    
+    categories = r.get_categories()
+    for category in categories:
+        r = Recommender(category)
+        r.load_data_from_db()
+        r.cal_sim(r.items, r.ratings, N=20)
+        r.recommend(r.items, r.sims)

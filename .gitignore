@@ -4,3 +4,4 @@ movielens
 
 *.tmp
 *.tar
+*.swp

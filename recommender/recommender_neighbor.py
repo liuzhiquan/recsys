@@ -90,6 +90,20 @@ class Recommender:
                 rating -= self.avg_rating
                 self.userdata[user][item] = rating
         '''
+    
+    def print_num_items_per_user(self):
+        """for each user, print the number of items she has rated
+        """
+        for user,items in sorted(self.userdata.items(), key=lambda x:len(x[1]), reverse=True):
+            print user, len(items)
+    
+    def cut_users(self, n):
+        """select users with above n ratings
+        """
+        for user in self.userdata:
+            if len(self.userdata[user]) < n:
+                self.userdata[user] = {}
+
 
     def pearson_sim(self, rating1, rating2):
         sum_xy = 0
@@ -286,8 +300,9 @@ def eval_func(movielens_path, train_ratingfile, test_ratingfile, metric, cfmetho
 
     for user in r_test.userdata.keys():
         hits_at5, hits_at10, hits_at20 = 0, 0, 0
+        true_set = set(r_test.userdata[user])
         for i, item in enumerate(getTopNitems(user, n=n)[:20]):
-            if item in r_test.userdata[user]:
+            if item in true_set:
                 if i < 20:
                     hits_at20 += 1
                 if i < 10:
@@ -298,19 +313,19 @@ def eval_func(movielens_path, train_ratingfile, test_ratingfile, metric, cfmetho
         prec_at10 += 1.0 * hits_at10 / 10
         prec_at20 +=  1.0 * hits_at20 / 20
 
-        N = len(r_test.userdata[user])
-        recall_at5 += 1.0 * hits_at5 / N
-        recall_at10 += 1.0 * hits_at10 / N
-        recall_at20 += 1.0 * hits_at20 / N
+        num_items = len(r_test.userdata[user])
+        recall_at5 += 1.0 * hits_at5 / num_items
+        recall_at10 += 1.0 * hits_at10 / num_items
+        recall_at20 += 1.0 * hits_at20 / num_items
 
-    N = len(r_test.userdata)
-    prec_at5 /= N
-    prec_at10 /= N
-    prec_at20 /= N
+    num_users = len(r_test.userdata)
+    prec_at5 /= num_users
+    prec_at10 /= num_users
+    prec_at20 /= num_users
 
-    recall_at5 /= N
-    recall_at10 /= N
-    recall_at20 /= N
+    recall_at5 /= num_users
+    recall_at10 /= num_users
+    recall_at20 /= num_users
 
     f1_at5 = 2 * (prec_at5 * recall_at5) / (prec_at5 + recall_at5)
     f1_at10 = 2 * (prec_at10 * recall_at10) / (prec_at10 + recall_at10)
@@ -349,7 +364,14 @@ def test():
                 eval_cv(movielens_path, cfmethod, metric, n)
                 #outf.close()
  
-    
+def test_foo():
+    movielens_path = '../../movielens/ml-100k/'
+    r = Recommender()
+    r.loadMovieLens(movielens_path)
+    r.print_num_items_per_user()
+
 if __name__ == '__main__':
     eval_func('../../movielens/ml-100k', 'u1.base', 'u1.test', 'pearson', 'user_based', n=100, dump=True)
+
+    #test_foo()
 

@@ -163,18 +163,24 @@ class Recommender:
         """
         pred_ratings *= self.test_haverated
         pred_indices = (pred_ratings[:, ::-1]).argsort(axis=1)
+        prec_at_5 = np.zeros(self.num_users)
         prec_at_10 = np.zeros(self.num_users)
+        prec_at_20 = np.zeros(self.num_users)
         for i,pred_items in enumerate(pred_indices):
             true_items = self.test_ratings[i, :].nonzero()[0]
+            prec_at_5[i] = len(set(pred_items[:5]) & set(true_items))
             prec_at_10[i] = len(set(pred_items[:10]) & set(true_items))
+            prec_at_20[i] = len(set(pred_items[:20]) & set(true_items))
+        prec_at_5 /= 5.0
         prec_at_10 /= 10.0
-        return prec_at_10
+        prec_at_20 /= 20.0
+        return prec_at_5.mean(), prec_at_10.mean(), prec_at_20.mean()
 
 if __name__ == '__main__':
     movielens_path = '../../movielens/ml-100k/'
     #movielens_path = '../../movielens/ml-1m/'
     r = Recommender()
-    r.loadMovieLens(movielens_path, 'u2.base', 'u2.test')
+    r.loadMovieLens(movielens_path, 'u1.base', 'u1.test')
 
     print 'baseline1: mean rating u train RMSE = %f' % r.get_train_rmse(r.mean1())
     print 'baseline1: mean rating u test  RMSE = %f' % r.get_test_rmse(r.mean1())
@@ -184,7 +190,9 @@ if __name__ == '__main__':
     pred_ratings = r.pmf(200, 0.001, 0.1, verbose=False)
     print 'final train RMSE %f' % r.get_train_rmse(pred_ratings)
     print 'final test RMSE %f' % r.get_test_rmse(pred_ratings)
-
-    prec_at_10 = r.get_prec_recall(pred_ratings)
-    print prec_at_10.mean()
+    
+    prec_at_5, prec_at_10, prec_at_20 = r.get_prec_recall(pred_ratings)
+    print 'prec@5 = %f' % prec_at_5
+    print 'prec@10 = %f' % prec_at_10
+    print 'prec@20 = %f' % prec_at_20
 

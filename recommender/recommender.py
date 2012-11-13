@@ -5,7 +5,7 @@ from math import sqrt
 
 
 class Recommender():
-    def __init__(self, category):
+    def __init__(self, category=0):
         self.category = category
         self.users = []
         self.items = []
@@ -106,7 +106,7 @@ class Recommender():
 
 
 if __name__ == '__main__':
-    r = Recommender(402)
+    r = Recommender()
     categories = r.get_categories()
     for category in categories:
         r = Recommender(category)

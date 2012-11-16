@@ -34,6 +34,8 @@ class Recommender():
             users = [row[0] for row in cursor.fetchall()]
             ratings[item] = dict.fromkeys(users, 1)
         self.ratings = ratings
+
+        self.popular_items = [item for item,ratings in sorted(ratings.items(), key=lambda x:len(ratings), reverse=True)]
     
     def cal_sim(self, items=None, ratings=None, N=20):
         """calculate similarities for each item in items"""
@@ -73,7 +75,11 @@ class Recommender():
             f.write('\n')      
         f.close()
 
-    def recommend(self, items, sims):
+    def recommend(self, items, sims=None):
+        """print recommendations to disk
+        """
+        if sims is None: 
+            sims = self.sims
         cursor = self.cursor
         for item in items:
             cursor.execute('select name from torrents where id=%i' % item)
@@ -88,6 +94,25 @@ class Recommender():
                 #print sim, recommended_item
             print
             print
+    
+    def get_recommendations(self, user, item, n=20):
+        """return n recommendations for user and item
+        """
+        sims = self.sims
+        item_sim_list = sims.get(item, [])
+        if item_sim_list:
+            self.cursor.execute('select torrentid from snatched where userid = %s' % user)
+            downloaded = set(x[0] for x in self.cursor.fetchall())
+            recommendations = []
+            for score,item in item_sim_list:
+                if not item in downloaded:
+                    recommendations.append(item)
+            return recommendations[:n]
+        else:
+            return r.most_popular(n)
+
+    def most_popular(self, n):
+        return self.popular_items[:n]
 
     def cosine_sim(self, dict1, dict2):
         numerator = 0.0
@@ -104,12 +129,34 @@ class Recommender():
         categories = [row[0] for row in cursor.fetchall()]
         return categories
 
+    def store_rec_to_db(self, user, item, recommendations):
+        cursor = self.cursor
+        cursor.execute("insert into `rec_torrents` (userid, torrentid, torrents) values (%s, %s, '%s')" 
+                % (user, item, '|'.join(str(x) for x in recommendations)))
 
-if __name__ == '__main__':
+def test_all():
     r = Recommender()
     categories = r.get_categories()
     for category in categories:
         r = Recommender(category)
         r.load_data_from_db()
         r.cal_sim(r.items, r.ratings, N=20)
-        r.recommend(r.items, r.sims)
+        #r.recommend(r.items)
+        #print r.most_popular(10)
+        for item in r.items:
+            recommendations = r.get_recommendations(0, item, 20)
+            r.store_rec_to_db(item, recommendations)
+
+def test():
+    r = Recommender(402)
+    r.load_data_from_db()
+    r.cal_sim(r.items, r.ratings, N=20)
+    #print r.most_popular(10)
+    #item = 50367 # the matrix 
+    for user in r.users[:10]:
+        for item in r.items[:10]:
+            recommendations = r.get_recommendations(user, item, 20)
+            print user, item, len(recommendations), recommendations
+
+if __name__ == '__main__':
+    test()

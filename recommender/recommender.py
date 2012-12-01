@@ -1,8 +1,13 @@
+#!/usr/bin/env python
+#encoding=utf8
 
 import os
 import MySQLdb
 from math import sqrt
 
+DBUSER = 'root'
+DBPASSWD = ''
+DB = 'putao'
 
 class Recommender():
     def __init__(self, category=0):
@@ -14,7 +19,7 @@ class Recommender():
         self.sims = {}
         self.sim_tmpfile = 'sims-%s.tmp' % self.category
     
-        self.conn = MySQLdb.connect(user='root', passwd='', db='putao')
+        self.conn = MySQLdb.connect(user=DBUSER, passwd=DBPASSWD, db=DB)
         self.cursor = self.conn.cursor()
 
     def load_data_from_db(self):
@@ -43,6 +48,9 @@ class Recommender():
         if ratings is None: ratings = self.ratings
         
         sims = {}
+
+        '''
+        # if similarity matrix file exists, load the similarity from disk
         if os.path.exists(self.sim_tmpfile):
             for line in open(self.sim_tmpfile).readlines():
                 fields = line.strip().split('\t')
@@ -56,6 +64,7 @@ class Recommender():
                 sims[item] = sim_list
             self.sims = sims
             return
+        '''
 
         for item1 in items:
             sim_list = []
@@ -66,7 +75,9 @@ class Recommender():
             sim_list.sort(reverse=True)
             sims[item1] = sim_list[:N]
         self.sims = sims
-
+        
+        '''
+        # store simalarity matrix into disk
         f = open(self.sim_tmpfile, 'w')
         for key in sorted(sims.keys()):
             f.write('%i\t' % key)
@@ -74,6 +85,7 @@ class Recommender():
             f.write('\t'.join('%f:%i' % (sim, item) for (sim, item) in sim_list))
             f.write('\n')      
         f.close()
+        '''
 
     def recommend(self, items, sims=None):
         """print recommendations to disk
@@ -129,34 +141,35 @@ class Recommender():
         categories = [row[0] for row in cursor.fetchall()]
         return categories
 
-    def store_rec_to_db(self, user, item, recommendations):
+    def store_rec_to_db(self, item, recommendations):
         cursor = self.cursor
-        cursor.execute("insert into `rec_torrents` (userid, torrentid, torrents) values (%s, %s, '%s')" 
-                % (user, item, '|'.join(str(x) for x in recommendations)))
+        cursor.execute('select id from rec_torrents where torrentid = %s' % item)
+        result = cursor.fetchone()
+        rec_str = '|'.join(str(x) for x in recommendations)
+        if result:
+            cursor.execute("insert into `rec_torrents` (torrentid, torrents) values (%s, '%s')" 
+                % (item, rec_str))
+        else:
+            cursor.execute("update rec_torrents set torrents = '%s' where torrentid = %s"
+                    % (rec_str, item))
+    
 
-def test_all():
+def run_all():
     r = Recommender()
     categories = r.get_categories()
-    for category in categories:
+    for category in categories[:1]:
         r = Recommender(category)
         r.load_data_from_db()
         r.cal_sim(r.items, r.ratings, N=20)
-        #r.recommend(r.items)
-        #print r.most_popular(10)
         for item in r.items:
             recommendations = r.get_recommendations(0, item, 20)
             r.store_rec_to_db(item, recommendations)
 
-def test():
+def run():
     r = Recommender(402)
-    r.load_data_from_db()
-    r.cal_sim(r.items, r.ratings, N=20)
-    #print r.most_popular(10)
-    #item = 50367 # the matrix 
-    for user in r.users[:10]:
-        for item in r.items[:10]:
-            recommendations = r.get_recommendations(user, item, 20)
-            print user, item, len(recommendations), recommendations
+    r.cursor.execute('select * from rec_torrents where torrentid=14')
+    result = r.cursor.fetchone()
+    print result
 
 if __name__ == '__main__':
-    test()
+    run_all()

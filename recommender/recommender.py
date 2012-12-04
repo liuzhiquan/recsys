@@ -9,6 +9,8 @@ DBUSER = 'root'
 DBPASSWD = ''
 DB = 'putao'
 
+DEBUG = False
+
 class Recommender():
     def __init__(self, category=0):
         self.category = category
@@ -17,6 +19,8 @@ class Recommender():
         self.ratings = {}
         self.get_sim = self.cosine_sim
         self.sims = {}
+
+        self.debug = DEBUG
         self.sim_tmpfile = 'sims-%s.tmp' % self.category
     
         self.conn = MySQLdb.connect(user=DBUSER, passwd=DBPASSWD, db=DB)
@@ -48,23 +52,21 @@ class Recommender():
         if ratings is None: ratings = self.ratings
         
         sims = {}
-
-        '''
-        # if similarity matrix file exists, load the similarity from disk
-        if os.path.exists(self.sim_tmpfile):
-            for line in open(self.sim_tmpfile).readlines():
-                fields = line.strip().split('\t')
-                item = int(fields[0])
-                sim_list = []
-                for sim_item_pair in fields[1:]:
-                    sim, item2 = sim_item_pair.split(':')
-                    sim = float(sim)
-                    item2 = int(item2)
-                    sim_list.append((sim, item2))
-                sims[item] = sim_list
-            self.sims = sims
-            return
-        '''
+        if self.debug:
+            # if similarity matrix file exists, load the similarity from disk
+            if os.path.exists(self.sim_tmpfile):
+                for line in open(self.sim_tmpfile).readlines():
+                    fields = line.strip().split('\t')
+                    item = int(fields[0])
+                    sim_list = []
+                    for sim_item_pair in fields[1:]:
+                        sim, item2 = sim_item_pair.split(':')
+                        sim = float(sim)
+                        item2 = int(item2)
+                        sim_list.append((sim, item2))
+                    sims[item] = sim_list
+                self.sims = sims
+                return
 
         for item1 in items:
             sim_list = []
@@ -76,16 +78,15 @@ class Recommender():
             sims[item1] = sim_list[:N]
         self.sims = sims
         
-        '''
-        # store simalarity matrix into disk
-        f = open(self.sim_tmpfile, 'w')
-        for key in sorted(sims.keys()):
-            f.write('%i\t' % key)
-            sim_list = sorted(sims[key], reverse=True)[:N]
-            f.write('\t'.join('%f:%i' % (sim, item) for (sim, item) in sim_list))
-            f.write('\n')      
-        f.close()
-        '''
+        if self.debug:
+            # store simalarity matrix into disk
+            f = open(self.sim_tmpfile, 'w')
+            for key in sorted(sims.keys()):
+                f.write('%i\t' % key)
+                sim_list = sorted(sims[key], reverse=True)[:N]
+                f.write('\t'.join('%f:%i' % (sim, item) for (sim, item) in sim_list))
+                f.write('\n')      
+            f.close()
 
     def recommend(self, items, sims=None):
         """print recommendations to disk
@@ -146,7 +147,7 @@ class Recommender():
         cursor.execute('select id from rec_torrents where torrentid = %s' % item)
         result = cursor.fetchone()
         rec_str = '|'.join(str(x) for x in recommendations)
-        if result:
+        if result is None:
             cursor.execute("insert into `rec_torrents` (torrentid, torrents) values (%s, '%s')" 
                 % (item, rec_str))
         else:
@@ -157,7 +158,7 @@ class Recommender():
 def run_all():
     r = Recommender()
     categories = r.get_categories()
-    for category in categories[:1]:
+    for category in categories:
         r = Recommender(category)
         r.load_data_from_db()
         r.cal_sim(r.items, r.ratings, N=20)

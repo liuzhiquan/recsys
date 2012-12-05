@@ -9,7 +9,7 @@ DBUSER = 'root'
 DBPASSWD = ''
 DB = 'putao'
 
-DEBUG = False
+DEBUG = True
 
 class Recommender():
     def __init__(self, category=0):
@@ -122,7 +122,7 @@ class Recommender():
                     recommendations.append(item)
             return recommendations[:n]
         else:
-            return r.most_popular(n)
+            return self.most_popular(n)
 
     def most_popular(self, n):
         return self.popular_items[:n]
@@ -144,7 +144,7 @@ class Recommender():
 
     def store_rec_to_db(self, item, recommendations):
         cursor = self.cursor
-        cursor.execute('select id from rec_torrents where torrentid = %s' % item)
+        cursor.execute('select torrentid from rec_torrents where torrentid = %s' % item)
         result = cursor.fetchone()
         rec_str = '|'.join(str(x) for x in recommendations)
         if result is None:

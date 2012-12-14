@@ -2,6 +2,7 @@
 #encoding=utf8
 
 import os
+import sys
 import MySQLdb
 from math import sqrt
 
@@ -22,7 +23,7 @@ class Recommender():
 
         self.debug = DEBUG
         self.sim_tmpfile = 'sims-%s.tmp' % self.category
-    
+
         self.conn = MySQLdb.connect(user=DBUSER, passwd=DBPASSWD, db=DB)
         self.cursor = self.conn.cursor()
 
@@ -45,12 +46,12 @@ class Recommender():
         self.ratings = ratings
 
         self.popular_items = [item for item,ratings in sorted(ratings.items(), key=lambda x:len(ratings), reverse=True)]
-    
+
     def cal_sim(self, items=None, ratings=None, N=20):
         """calculate similarities for each item in items"""
         if items is None: items = self.items
         if ratings is None: ratings = self.ratings
-        
+
         sims = {}
         if self.debug:
             # if similarity matrix file exists, load the similarity from disk
@@ -77,7 +78,7 @@ class Recommender():
             sim_list.sort(reverse=True)
             sims[item1] = sim_list[:N]
         self.sims = sims
-        
+
         if self.debug:
             # store simalarity matrix into disk
             f = open(self.sim_tmpfile, 'w')
@@ -85,13 +86,13 @@ class Recommender():
                 f.write('%i\t' % key)
                 sim_list = sorted(sims[key], reverse=True)[:N]
                 f.write('\t'.join('%f:%i' % (sim, item) for (sim, item) in sim_list))
-                f.write('\n')      
+                f.write('\n')
             f.close()
 
     def recommend(self, items, sims=None):
         """print recommendations to disk
         """
-        if sims is None: 
+        if sims is None:
             sims = self.sims
         cursor = self.cursor
         for item in items:
@@ -107,7 +108,7 @@ class Recommender():
                 #print sim, recommended_item
             print
             print
-    
+
     def get_recommendations(self, user, item, n=20):
         """return n recommendations for user and item
         """
@@ -148,12 +149,12 @@ class Recommender():
         result = cursor.fetchone()
         rec_str = '|'.join(str(x) for x in recommendations)
         if result is None:
-            cursor.execute("insert into `rec_torrents` (torrentid, torrents) values (%s, '%s')" 
+            cursor.execute("insert into `rec_torrents` (torrentid, torrents) values (%s, '%s')"
                 % (item, rec_str))
         else:
             cursor.execute("update rec_torrents set torrents = '%s' where torrentid = %s"
                     % (rec_str, item))
-    
+
 
 def run_all():
     r = Recommender()
@@ -166,11 +167,26 @@ def run_all():
             recommendations = r.get_recommendations(0, item, 20)
             r.store_rec_to_db(item, recommendations)
 
-def run():
-    r = Recommender(402)
-    r.cursor.execute('select * from rec_torrents where torrentid=14')
-    result = r.cursor.fetchone()
-    print result
+def run(category=402):
+    r = Recommender(category)
+    r.load_data_from_db()
+    r.cal_sim(r.items, r.ratings, N=20)
+    for item in r.items:
+        recommendations = r.get_recommendations(0, item, 20)
+        r.store_rec_to_db(item, recommendations)
 
 if __name__ == '__main__':
-    run_all()
+    if len(sys.argv) != 2 and len(sys.argv) != 3:
+        print >> sys.stderr, 'Usage: %s 0 <category>' % sys.argv[0]
+        print >> sys.stderr, 'or Usage: %s 1' % sys.argv[0]
+        sys.exit(1)
+
+    if int(sys.argv[1]) == 0:
+        category = int(sys.argv[2])
+        run(category)
+    elif int(sys.argv[1]) == 1:
+        run_all()
+    else:
+        print >> sys.stderr, 'Usage: %s 0 <category>' % sys.argv[0]
+        print >> sys.stderr, 'or Usage: 1' % sys.argv[0]
+

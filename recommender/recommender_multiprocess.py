@@ -16,4 +16,4 @@ if __name__ == '__main__':
         t = subprocess.Popen(args='python recommender.py 0 %s' % category, shell=True)
         a.append(t)
     for s in a:
-        s.terminate()
+        s.wait()

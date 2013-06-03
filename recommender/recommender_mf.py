@@ -228,7 +228,7 @@ class Recommender:
         #ratings = self.ratings - self.mean_rating
         ratings = self.ratings - mean
 
-        for epoch in range(max_epoch):
+        for epoch in xrange(max_epoch):
             pred_ratings = np.dot(user_factors, item_factors.T)
             error = self.haverated * (pred_ratings - ratings)
 
@@ -325,6 +325,9 @@ def run_recsys13():
     print 'baseline2: mean rating u+bu+bi test  RMSE = %f' % r.get_test_rmse(r.mean2())
 
     pred_ratings = r.pmf(100, 0.001, 0.1, verbose=True)
+    f = open('pred_ratings', 'wb')
+    np.save(f, pred_ratings)
+    f.close()
     print 'final train RMSE %f' % r.get_train_rmse(pred_ratings)
     print 'final test  RMSE %f' % r.get_test_rmse(pred_ratings)
     print pred_ratings.shape
